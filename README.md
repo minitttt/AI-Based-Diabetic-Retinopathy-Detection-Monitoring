@@ -8,7 +8,7 @@
   <img src="https://img.shields.io/badge/QWK-0.755-teal?style=for-the-badge" />
 </p>
 
-### 🌐 [Live Demo Available Here](https://diabeticretinopathydetection.vercel.app/)
+### 🌐 [Live Demo Available Here](ai-based-diabetic-retinopathy-detec.vercel.app)
 
 > An end-to-end deep learning system that grades Diabetic Retinopathy (DR) severity from retinal fundus photographs into 5 clinical levels — No DR, Mild, Moderate, Severe, and Proliferative — using a fine-tuned EfficientNet-B4-NS backbone served via a FastAPI REST API and a modern web frontend.
 
