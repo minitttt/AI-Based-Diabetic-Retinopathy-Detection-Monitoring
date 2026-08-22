@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RetinaScan AI — Diabetic Retinopathy Detection</title>
+    <meta name="description" content="AI-powered diabetic retinopathy severity grading from retinal fundus images. Instant, accurate detection using EfficientNet-B4-NS deep learning.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="bg-orb orb-3"></div>
+
+    <div class="page-wrapper">
+<aside class="sidebar">
+            <div class="logo">
+                <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
+                    <circle cx="17" cy="17" r="15" stroke="url(#sGrad)" stroke-width="2"/>
+                    <circle cx="17" cy="17" r="7" fill="url(#sGrad)" opacity="0.85"/>
+                    <circle cx="17" cy="17" r="2.5" fill="white"/>
+                    <defs>
+                        <linearGradient id="sGrad" x1="0" y1="0" x2="34" y2="34" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#38bdf8"/>
+                            <stop offset="1" stop-color="#818cf8"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <div>
+                    <div class="logo-name">RetinaScan</div>
+                    <div class="logo-sub">AI · v2.0</div>
+                </div>
+            </div>
+
+            <nav class="nav-items">
+                <a href="#" class="nav-item active" id="nav-diagnose" data-page="diagnose">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12l2 2 4-4"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg>
+                    <span>Diagnose</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-history" data-page="history">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+                    <span>History</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-about" data-page="about">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg>
+                    <span>About</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <div class="status-dot" id="api-status-dot"></div>
+                </div>
+                <div class="status-text">
+                    <span id="api-status-label">Connecting...</span>
+                    <span class="status-sub">FastAPI Backend</span>
+                </div>
+            </div>
+        </aside>
+<main class="main-content" id="page-diagnose">
+            <header class="page-header">
+                <div>
+                    <h1>Retinopathy Grading</h1>
+                    <p class="subtitle">Upload a fundus photograph for instant AI-based severity classification</p>
+                </div>
+                <div class="grade-legend">
+                    <span class="legend-chip grade-0">No DR</span>
+                    <span class="legend-chip grade-1">Mild</span>
+                    <span class="legend-chip grade-2">Moderate</span>
+                    <span class="legend-chip grade-3">Severe</span>
+                    <span class="legend-chip grade-4">Proliferative</span>
+                </div>
+            </header>
+<section class="card upload-card" id="upload-section">
+                <div id="drop-zone" class="drop-zone" role="button" tabindex="0" aria-label="Upload retinal image">
+                    <div class="drop-zone-inner">
+                        <div class="upload-icon-wrap">
+                            <svg class="upload-icon" viewBox="0 0 64 64" fill="none">
+                                <circle cx="32" cy="32" r="30" stroke="url(#uGrad)" stroke-width="1.5" stroke-dasharray="5 3"/>
+                                <circle cx="32" cy="32" r="20" stroke="url(#uGrad)" stroke-width="1" stroke-dasharray="3 2" opacity="0.4"/>
+                                <path d="M32 42V26m0 0l-7 7m7-7l7 7" stroke="url(#uGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                <defs>
+                                    <linearGradient id="uGrad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+                                        <stop stop-color="#38bdf8"/>
+                                        <stop offset="1" stop-color="#818cf8"/>
+                                    </linearGradient>
+                                </defs>
+                            </svg>
+                        </div>
+                        <p class="drop-title">Drag &amp; drop your fundus image</p>
+                        <p class="drop-sub">or <span class="browse-link">browse from computer</span></p>
+                        <div class="drop-tags">
+                            <span class="drop-tag">JPG</span>
+                            <span class="drop-tag">PNG</span>
+                            <span class="drop-tag">BMP</span>
+                            <span class="drop-tag dot">·</span>
+                            <span class="drop-tag">Max 20 MB</span>
+                        </div>
+                    </div>
+                    <input type="file" id="file-input" accept="image/*" hidden>
+                </div>
+<div class="quick-stats">
+                    <div class="stat-item">
+                        <span class="stat-val">0.901</span>
+                        <span class="stat-label">Macro AUC</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-item">
+                        <span class="stat-val">0.755</span>
+                        <span class="stat-label">QWK Score</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-item">
+                        <span class="stat-val">0.991</span>
+                        <span class="stat-label">No-DR AUC</span>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-item">
+                        <span class="stat-val">5</span>
+                        <span class="stat-label">DR Classes</span>
+                    </div>
+                </div>
+            </section>
+<section class="card loading-card hidden" id="loading-section">
+                <div class="scanner-wrap">
+                    <img id="scan-preview-loading" src="" alt="Scan being analyzed" class="scan-thumb">
+                    <div class="scanner-overlay"></div>
+                    <div class="scanner-line"></div>
+                    <div class="scanner-corners">
+                        <span class="sc tl"></span><span class="sc tr"></span>
+                        <span class="sc bl"></span><span class="sc br"></span>
+                    </div>
+                </div>
+                <div class="loading-text">
+                    <div class="pulse-ring"></div>
+                    <div>
+                        <p class="loading-title">Analyzing retinal structures…</p>
+                        <p class="loading-sub" id="loading-step">Preprocessing fundus image</p>
+                        <div class="loading-progress">
+                            <div class="loading-progress-fill" id="loading-progress-fill"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+<section class="card results-card hidden" id="results-section">
+                <div class="results-grid">
+                    <div class="image-panel">
+                        <div class="image-frame">
+                            <img id="preview-image" src="" alt="Analyzed fundus scan">
+                            <div class="image-badge" id="grade-badge">--</div>
+                            <div class="image-glow"></div>
+                        </div>
+                        <p class="image-caption">Analyzed Fundus Image</p>
+                        <p class="filename-label" id="filename-label"></p>
+                    </div>
+                    <div class="diagnosis-panel">
+                        <div class="diagnosis-header">
+                            <div class="diagnosis-icon" id="diagnosis-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+                            </div>
+                            <div>
+                                <p class="diag-label">DR Severity Grade</p>
+                                <h2 class="dr-grade" id="dr-grade">--</h2>
+                            </div>
+                        </div>
+                        <div class="confidence-section">
+                            <div class="conf-row">
+                                <span class="conf-label">Model Confidence</span>
+                                <span class="conf-value" id="confidence-text">--%</span>
+                            </div>
+                            <div class="progress-track">
+                                <div class="progress-fill" id="confidence-fill"></div>
+                            </div>
+                        </div>
+                        <div class="probability-breakdown">
+                            <p class="breakdown-title">Class Probabilities</p>
+                            <div class="prob-bars" id="prob-bars"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="results-actions">
+                    <button id="reset-btn" class="btn btn-primary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
+                        Analyze Another Scan
+                    </button>
+                    <button class="btn btn-ghost" id="download-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                        Save Report
+                    </button>
+                </div>
+            </section>
+<section class="card error-card hidden" id="error-section">
+                <div class="error-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg>
+                </div>
+                <h3 id="error-title">Connection Failed</h3>
+                <p id="error-msg">Unable to reach the AI backend. Please ensure the server is running.</p>
+                <button class="btn btn-primary" id="retry-btn">Try Again</button>
+            </section>
+        </main>
+<main class="main-content hidden" id="page-history">
+            <header class="page-header">
+                <div>
+                    <h1>Scan History</h1>
+                    <p class="subtitle">Review previous analyses and patient progression over time</p>
+                </div>
+            </header>
+            <section class="card" style="padding:48px; text-align:center;">
+                <div class="empty-icon">
+                    <svg viewBox="0 0 64 64" fill="none" width="64" height="64">
+                        <circle cx="32" cy="32" r="30" stroke="url(#hGrad)" stroke-width="1.5" stroke-dasharray="4 3"/>
+                        <path d="M32 20v12l8 4" stroke="url(#hGrad)" stroke-width="2.2" stroke-linecap="round"/>
+                        <defs><linearGradient id="hGrad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse"><stop stop-color="#38bdf8"/><stop offset="1" stop-color="#818cf8"/></linearGradient></defs>
+                    </svg>
+                </div>
+                <h3 style="margin-top:20px; font-size:1.2rem; font-weight:700;">No History Yet</h3>
+                <p style="color:var(--muted-light); margin-top:8px; font-size:0.9rem;">Upload and analyze fundus images on the Diagnose tab to build your history.</p>
+                <button class="btn btn-primary" style="margin-top:24px;" onclick="switchPage('diagnose')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
+                    Start Diagnosing
+                </button>
+            </section>
+        </main>
+<main class="main-content hidden" id="page-about">
+            <header class="page-header">
+                <div>
+                    <h1>About the Model</h1>
+                    <p class="subtitle">Architecture, performance metrics, and clinical efficiency of the AI system</p>
+                </div>
+            </header>
+<section class="about-hero card">
+                <div class="about-hero-inner">
+                    <div class="model-badge-wrap">
+                        <div class="model-icon-ring">
+                            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                                <circle cx="20" cy="20" r="18" stroke="url(#mGrad)" stroke-width="2"/>
+                                <circle cx="20" cy="20" r="8" fill="url(#mGrad)" opacity="0.8"/>
+                                <circle cx="20" cy="20" r="3" fill="white"/>
+                                <defs><linearGradient id="mGrad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse"><stop stop-color="#38bdf8"/><stop offset="1" stop-color="#818cf8"/></linearGradient></defs>
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="model-name-main">EfficientNet-B4-NS</div>
+                            <div class="model-name-sub">NoisyStudent Pretrained · PyTorch</div>
+                        </div>
+                    </div>
+                    <p class="about-desc">An end-to-end deep learning pipeline for 5-class Diabetic Retinopathy grading from retinal fundus photographs. The model uses a compound-scaled EfficientNet-B4 backbone with NoisyStudent pretraining and a custom classification head, served via FastAPI for real-time clinical screening.</p>
+                </div>
+<div class="metric-pills">
+                    <div class="metric-pill">
+                        <span class="pill-val">0.901</span>
+                        <span class="pill-label">Macro AUC</span>
+                    </div>
+                    <div class="metric-pill pill-green">
+                        <span class="pill-val">0.991</span>
+                        <span class="pill-label">No-DR AUC</span>
+                    </div>
+                    <div class="metric-pill pill-purple">
+                        <span class="pill-val">0.755</span>
+                        <span class="pill-label">QWK Score</span>
+                    </div>
+                    <div class="metric-pill pill-orange">
+                        <span class="pill-val">55.6%</span>
+                        <span class="pill-label">Test Accuracy</span>
+                    </div>
+                    <div class="metric-pill">
+                        <span class="pill-val">~20M</span>
+                        <span class="pill-label">Parameters</span>
+                    </div>
+                    <div class="metric-pill">
+                        <span class="pill-val">380px</span>
+                        <span class="pill-label">Input Size</span>
+                    </div>
+                </div>
+            </section>
+<section class="about-section">
+                <div class="section-label">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" width="16" height="16"><rect x="2" y="2" width="6" height="6" rx="1"/><rect x="12" y="2" width="6" height="6" rx="1"/><rect x="2" y="12" width="6" height="6" rx="1"/><rect x="12" y="12" width="6" height="6" rx="1"/></svg>
+                    Architecture
+                </div>
+                <div class="arch-grid">
+                    <div class="arch-card card">
+                        <div class="arch-icon" style="background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.2);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.8" width="22" height="22"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                        </div>
+                        <div class="arch-label">Backbone</div>
+                        <div class="arch-val">tf_efficientnet_b4_ns</div>
+                        <div class="arch-sub">NoisyStudent pretrained on 300M images</div>
+                    </div>
+                    <div class="arch-card card">
+                        <div class="arch-icon" style="background:rgba(129,140,248,0.1);border-color:rgba(129,140,248,0.2);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="1.8" width="22" height="22"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M12 7v4M10 19H6M14 19h4M10.5 17.5L12 11M13.5 17.5L12 11"/></svg>
+                        </div>
+                        <div class="arch-label">Feature Dim</div>
+                        <div class="arch-val">1792</div>
+                        <div class="arch-sub">Global average pool output</div>
+                    </div>
+                    <div class="arch-card card">
+                        <div class="arch-icon" style="background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.2);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="1.8" width="22" height="22"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                        </div>
+                        <div class="arch-label">Head Layers</div>
+                        <div class="arch-val">1792→512→5</div>
+                        <div class="arch-sub">GELU · BatchNorm · Dropout</div>
+                    </div>
+                    <div class="arch-card card">
+                        <div class="arch-icon" style="background:rgba(249,115,22,0.1);border-color:rgba(249,115,22,0.2);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="1.8" width="22" height="22"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                        </div>
+                        <div class="arch-label">Input Size</div>
+                        <div class="arch-val">380 × 380</div>
+                        <div class="arch-sub">Preserves fine retinal details</div>
+                    </div>
+                </div>
+<div class="head-pipeline card">
+                    <div class="head-title">Classifier Head Pipeline</div>
+                    <div class="pipeline-flow">
+                        <div class="pipe-node">
+                            <div class="pipe-box backbone-box">Backbone<br><small>EfficientNet-B4-NS</small></div>
+                        </div>
+                        <div class="pipe-arrow">→</div>
+                        <div class="pipe-node">
+                            <div class="pipe-box">GlobalAvgPool<br><small>1792-d</small></div>
+                        </div>
+                        <div class="pipe-arrow">→</div>
+                        <div class="pipe-node">
+                            <div class="pipe-box">Dropout<br><small>p=0.4</small></div>
+                        </div>
+                        <div class="pipe-arrow">→</div>
+                        <div class="pipe-node">
+                            <div class="pipe-box">Linear<br><small>1792→512</small></div>
+                        </div>
+                        <div class="pipe-arrow">→</div>
+                        <div class="pipe-node">
+                            <div class="pipe-box">GELU<br><small>+ BN</small></div>
+                        </div>
+                        <div class="pipe-arrow">→</div>
+                        <div class="pipe-node">
+                            <div class="pipe-box">Dropout<br><small>p=0.2</small></div>
+                        </div>
+                        <div class="pipe-arrow">→</div>
+                        <div class="pipe-node">
+                            <div class="pipe-box output-box">Softmax<br><small>5 classes</small></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+<section class="about-section">
+                <div class="section-label">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" width="16" height="16"><polyline points="2,16 7,8 11,12 15,5 18,9"/></svg>
+                    Training Performance
+                </div>
+
+                <div class="training-table-wrap card">
+                    <div class="training-table-header">
+                        <div class="tt-badge">9 Epochs · Cosine Annealing LR · AdamW</div>
+                        <div class="tt-best-tag">✓ Best: Epoch 9 · Val Loss 0.242 · Val QWK 0.701</div>
+                    </div>
+                    <div class="table-scroll">
+                        <table class="training-table">
+                            <thead>
+                                <tr>
+                                    <th>Epoch</th>
+                                    <th>Train Loss</th>
+                                    <th>Val Loss</th>
+                                    <th>Train κ</th>
+                                    <th>Val κ</th>
+                                    <th>Train Acc</th>
+                                    <th>Val Acc</th>
+                                    <th>LR</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>1</td><td>1.092</td><td>0.371</td><td>0.417</td><td>0.578</td><td>36.2%</td><td>47.4%</td><td>1.0e-3</td></tr>
+                                <tr><td>2</td><td>0.741</td><td>0.336</td><td>0.485</td><td>0.614</td><td>38.4%</td><td>44.4%</td><td>9.0e-4</td></tr>
+                                <tr><td>3</td><td>0.665</td><td>0.300</td><td>0.491</td><td>0.612</td><td>39.8%</td><td>40.3%</td><td>6.5e-4</td></tr>
+                                <tr><td>4</td><td>0.638</td><td>0.299</td><td>0.448</td><td>0.616</td><td>38.5%</td><td>43.9%</td><td>3.5e-4</td></tr>
+                                <tr><td>5</td><td>0.604</td><td>0.297</td><td>0.503</td><td>0.652</td><td>41.1%</td><td>43.5%</td><td>9.6e-5</td></tr>
+                                <tr><td>6</td><td>0.633</td><td>0.304</td><td>0.557</td><td>0.666</td><td>40.7%</td><td>37.3%</td><td>1.0e-4</td></tr>
+                                <tr><td>7</td><td>0.462</td><td>0.279</td><td>0.677</td><td>0.689</td><td>51.5%</td><td>35.3%</td><td>9.0e-5</td></tr>
+                                <tr><td>8</td><td>0.371</td><td>0.300</td><td>0.713</td><td>0.658</td><td>56.5%</td><td>44.6%</td><td>6.5e-5</td></tr>
+                                <tr class="best-row"><td>9 ✓</td><td>0.308</td><td class="highlight-cell">0.242</td><td>0.751</td><td class="highlight-cell">0.701</td><td>60.4%</td><td>55.0%</td><td>3.5e-5</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+<div class="charts-row">
+                    <div class="chart-card card">
+                        <div class="chart-title">Loss Curve</div>
+                        <canvas id="lossChart" width="300" height="160"></canvas>
+                    </div>
+                    <div class="chart-card card">
+                        <div class="chart-title">QWK (Kappa) Curve</div>
+                        <canvas id="kappaChart" width="300" height="160"></canvas>
+                    </div>
+                    <div class="chart-card card">
+                        <div class="chart-title">Accuracy Curve</div>
+                        <canvas id="accChart" width="300" height="160"></canvas>
+                    </div>
+                </div>
+            </section>
+<section class="about-section">
+                <div class="section-label">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" width="16" height="16"><circle cx="10" cy="10" r="8"/><path d="M10 6v4l3 3"/></svg>
+                    Evaluation Metrics
+                </div>
+<div class="card auc-card">
+                    <div class="auc-header">
+                        <div>
+                            <div class="auc-title">Per-Class AUC (One-vs-Rest)</div>
+                            <div class="auc-sub">Macro AUC: <strong>0.901</strong> &nbsp;·&nbsp; QWK: <strong>0.755</strong> &nbsp;·&nbsp; Test Accuracy: <strong>55.6%</strong></div>
+                        </div>
+                    </div>
+                    <div class="auc-bars">
+                        <div class="auc-row">
+                            <span class="auc-label" style="color:var(--g0)">No DR</span>
+                            <div class="auc-track"><div class="auc-fill" style="width:99.1%;background:var(--g0);box-shadow:0 0 10px var(--g0)44"></div></div>
+                            <span class="auc-val">0.991</span>
+                        </div>
+                        <div class="auc-row">
+                            <span class="auc-label" style="color:var(--g1)">Mild</span>
+                            <div class="auc-track"><div class="auc-fill" style="width:88.2%;background:var(--g1);box-shadow:0 0 10px var(--g1)44"></div></div>
+                            <span class="auc-val">0.882</span>
+                        </div>
+                        <div class="auc-row">
+                            <span class="auc-label" style="color:var(--g2)">Moderate</span>
+                            <div class="auc-track"><div class="auc-fill" style="width:91%;background:var(--g2);box-shadow:0 0 10px var(--g2)44"></div></div>
+                            <span class="auc-val">0.910</span>
+                        </div>
+                        <div class="auc-row">
+                            <span class="auc-label" style="color:var(--g3)">Severe</span>
+                            <div class="auc-track"><div class="auc-fill" style="width:81.3%;background:var(--g3);box-shadow:0 0 10px var(--g3)44"></div></div>
+                            <span class="auc-val">0.813</span>
+                        </div>
+                        <div class="auc-row">
+                            <span class="auc-label" style="color:var(--g4)">Proliferative</span>
+                            <div class="auc-track"><div class="auc-fill" style="width:90.6%;background:var(--g4);box-shadow:0 0 10px var(--g4)44"></div></div>
+                            <span class="auc-val">0.906</span>
+                        </div>
+                    </div>
+                    <div class="auc-note">
+                        <svg viewBox="0 0 16 16" fill="none" width="14" height="14"><circle cx="8" cy="8" r="7" stroke="#38bdf8" stroke-width="1.2"/><path d="M8 5v3m0 2.5h.01" stroke="#38bdf8" stroke-width="1.4" stroke-linecap="round"/></svg>
+                        <span>Raw accuracy (55.6%) appears modest because DR grading is an ordinal task. The model's QWK of <strong>0.755</strong> reflects substantial clinical agreement — misclassifying "Moderate" as "Mild" is far less harmful than "No DR".</span>
+                    </div>
+                </div>
+            </section>
+<section class="about-section">
+                <div class="section-label">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" width="16" height="16"><path d="M10 2l2 5h5l-4 3 1.5 5L10 13l-4.5 2L7 10 3 7h5L10 2z"/></svg>
+                    Why This Model is Efficient for DR Detection
+                </div>
+
+                <div class="efficiency-grid">
+                    <div class="eff-card card">
+                        <div class="eff-icon" style="background:rgba(56,189,248,0.12);border-color:rgba(56,189,248,0.25);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.8" width="22" height="22"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm0 4v5l3 3"/></svg>
+                        </div>
+                        <div class="eff-title">NoisyStudent Pretraining</div>
+                        <div class="eff-body">Pretrained on 300M unlabeled images via self-training — providing far richer feature representations than standard ImageNet weights, critical for scarce medical data.</div>
+                    </div>
+                    <div class="eff-card card">
+                        <div class="eff-icon" style="background:rgba(34,197,94,0.12);border-color:rgba(34,197,94,0.25);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="1.8" width="22" height="22"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5l4 4"/></svg>
+                        </div>
+                        <div class="eff-title">CLAHE Preprocessing</div>
+                        <div class="eff-body">Contrast Limited Adaptive Histogram Equalization enhances subtle lesions — microaneurysms, hemorrhages, exudates — that are invisible in raw fundus images.</div>
+                    </div>
+                    <div class="eff-card card">
+                        <div class="eff-icon" style="background:rgba(129,140,248,0.12);border-color:rgba(129,140,248,0.25);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="1.8" width="22" height="22"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                        </div>
+                        <div class="eff-title">High-Res 380×380 Input</div>
+                        <div class="eff-body">Larger input resolution than standard EfficientNet-B0 (224px) preserves microaneurysms (~10–125 µm) that are lost at lower resolutions.</div>
+                    </div>
+                    <div class="eff-card card">
+                        <div class="eff-icon" style="background:rgba(249,115,22,0.12);border-color:rgba(249,115,22,0.25);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="1.8" width="22" height="22"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        </div>
+                        <div class="eff-title">Clinically-Aligned QWK</div>
+                        <div class="eff-body">Optimized for Quadratic Weighted Kappa — the ophthalmology gold standard — which penalizes by grade distance rather than treating all misclassifications equally.</div>
+                    </div>
+                    <div class="eff-card card">
+                        <div class="eff-icon" style="background:rgba(239,68,68,0.12);border-color:rgba(239,68,68,0.25);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.8" width="22" height="22"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        </div>
+                        <div class="eff-title">0.991 No-DR AUC</div>
+                        <div class="eff-body">Near-perfect sensitivity for ruling out DR in healthy patients — the most critical clinical use-case — acting as a reliable first-pass screening filter.</div>
+                    </div>
+                    <div class="eff-card card">
+                        <div class="eff-icon" style="background:rgba(168,85,247,0.12);border-color:rgba(168,85,247,0.25);">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="1.8" width="22" height="22"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                        </div>
+                        <div class="eff-title">Efficient Deployment</div>
+                        <div class="eff-body">~20M parameters with compound scaling achieves higher accuracy than ResNet-50 (25M) and far surpasses VGG-16 (138M) — smaller, faster, better.</div>
+                    </div>
+                </div>
+<div class="card comp-table-card">
+                    <div class="comp-title">Model Comparison</div>
+                    <table class="comp-table">
+                        <thead>
+                            <tr><th>Model</th><th>Params</th><th>Accuracy</th><th>Macro AUC</th><th>Speed</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>VGG-16</td><td class="muted">138M</td><td class="muted">~48–51%</td><td class="muted">~0.83</td><td class="muted">Slow</td></tr>
+                            <tr><td>ResNet-50</td><td class="muted">25M</td><td class="muted">~50–53%</td><td class="muted">~0.85</td><td class="muted">Medium</td></tr>
+                            <tr class="highlight-row"><td><strong>EfficientNet-B4-NS ✓</strong></td><td><strong>~20M</strong></td><td><strong>55.6%</strong></td><td><strong>0.901</strong></td><td><strong>Fast</strong></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+<section class="about-section">
+                <div class="section-label">
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" width="16" height="16"><path d="M3 5h14M3 10h14M3 15h10"/></svg>
+                    Dataset & Disclaimer
+                </div>
+                <div class="cards-2col">
+                    <div class="card info-card">
+                        <div class="info-card-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.8" width="20" height="20"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                        </div>
+                        <div class="info-card-title">APTOS 2019 Dataset</div>
+                        <ul class="info-list">
+                            <li>~3,662 retinal fundus images</li>
+                            <li>Graded by expert ophthalmologists (0–4 scale)</li>
+                            <li>High class imbalance (majority No-DR)</li>
+                            <li>Variable image quality, lighting & cameras</li>
+                            <li>Addressed with weighted sampling & augmentation</li>
+                        </ul>
+                    </div>
+                    <div class="card disclaimer-card">
+                        <div class="disclaimer-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="1.8" width="20" height="20"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                        </div>
+                        <div class="info-card-title" style="color:#f97316">Clinical Disclaimer</div>
+                        <p class="disclaimer-text">This system is intended for <strong>research and educational purposes only</strong>. It is NOT a certified medical device and must NOT replace clinical diagnosis by a qualified ophthalmologist. All predictions require review by a licensed medical professional.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
