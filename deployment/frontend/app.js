@@ -1,4 +1,4 @@
-const API_BASE = 'https://ai-based-diabetic-retinopathy-detection.onrender.com';
+const API_BASE = 'https://corners-mail-numerical-secretary.trycloudflare.com';
 const CLASS_NAMES  = ['No DR', 'Mild', 'Moderate', 'Severe', 'Proliferative DR'];
 const GRADE_COLORS = ['#22c55e', '#eab308', '#f97316', '#ef4444', '#a855f7'];
 const LOADING_STEPS = [
