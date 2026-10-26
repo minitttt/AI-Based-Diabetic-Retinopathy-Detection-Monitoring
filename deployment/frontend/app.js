@@ -1,6 +1,7 @@
 const API_BASE = 'http://localhost:8001';
 const CLASS_NAMES = ['No DR', 'Mild', 'Moderate', 'Severe', 'Proliferative DR'];
 const GRADE_COLORS = ['#199b73', '#9aaf3c', '#d8853b', '#d45b4b', '#8c3d68'];
+
 const LOADING_STEPS = [
     'Preprocessing fundus image…',
     'Applying CLAHE enhancement…',
