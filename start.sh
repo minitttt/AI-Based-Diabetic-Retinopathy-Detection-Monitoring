@@ -8,7 +8,7 @@ PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV="$PROJECT_DIR/venv"
 BACKEND="$PROJECT_DIR/deployment/backend"
 FRONTEND="$PROJECT_DIR/deployment/frontend"
-BACKEND_PORT=8000
+BACKEND_PORT=8001
 FRONTEND_PORT=3000
 
 # Colors

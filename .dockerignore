@@ -1,0 +1,48 @@
+# Version-control, editor, and agent metadata
+.git/
+.github/
+.opencode/
+.omnirush/
+.DS_Store
+.gitignore
+
+# Local Python environments and caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Training-only inputs and notebook material
+data/
+aptos2019-blindness-detection/
+*.ipynb
+evaluate_test.py
+
+# Local databases and SQLite sidecars
+monitoring.db
+*.db
+*.sqlite
+*.sqlite3
+*.db-*
+*.sqlite-*
+
+# Runtime uploads and generated report artifacts
+deployment/backend/uploads/
+deployment/backend/report_artifacts/
+logs/
+runtime/
+tmp/
+*.log
+*.pid
+
+# Keep the model-artifact strategy explicit: the runtime's default loader uses
+# checkpoints/best_model.pth, which is supplied outside version control.  Do
+# not send alternate checkpoints/exports in the Docker build context.
+checkpoints/*
+!checkpoints/best_model.pth

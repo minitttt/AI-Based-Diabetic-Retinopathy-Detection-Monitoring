@@ -19,6 +19,27 @@ aptos2019-blindness-detection/
 *.sqlite
 *.sqlite3
 monitoring.db
+*.db-*
+*.sqlite-*
+
+# Runtime uploads, reports, and local state
+deployment/backend/uploads/
+deployment/backend/report_artifacts/
+runtime/
+tmp/
+*.log
+*.pid
+
+# Python tooling and local build output
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+build/
+dist/
+*.egg-info/
 
 # Python / Jupyter Caches
 __pycache__/
@@ -34,3 +55,9 @@ __pycache__/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Editor & Tooling Configs
+.opencode/
+opencode.jsonc
+.omnirush/
+

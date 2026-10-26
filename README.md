@@ -10,7 +10,7 @@
 
 ### 🌐 [Live Demo Available Here](https://diabeticretinopathydetection.vercel.app/)
 
-> An end-to-end deep learning system that grades Diabetic Retinopathy (DR) severity from retinal fundus photographs into 5 clinical levels — No DR, Mild, Moderate, Severe, and Proliferative — using a fine-tuned EfficientNet-B4-NS backbone served via a FastAPI REST API and a modern web frontend.
+> An end-to-end research and educational system that grades Diabetic Retinopathy (DR) severity from retinal fundus photographs into five ordinal labels — No DR, Mild, Moderate, Severe, and Proliferative — using a fine-tuned EfficientNet-B4-NS backbone served via a FastAPI REST API and a web frontend. The reported metrics are from this project's data split and do not establish clinical validation or regulatory clearance.
 
 ---
 
@@ -37,8 +37,8 @@ Diabetic Retinopathy is the leading cause of blindness among working-age adults 
 **The system performs:**
 - 5-class DR severity grading (International Clinical DR Scale)
 - Real-time inference via REST API
-- Patient progression monitoring over time
-- Grad-CAM visual explanations (showing which retinal regions influenced the decision)
+- Optional patient progression monitoring over time using SQLite
+- Attention-map explanations for review (not lesion segmentation or diagnosis)
 
 ---
 
@@ -56,7 +56,8 @@ Diabetic Retinopathy is the leading cause of blindness among working-age adults 
 | Classifier Head | `Dropout(0.4) → Linear(1792→512) → GELU → BN → Dropout(0.2) → Linear(512→5)` |
 | Parameters | ~19.3M (backbone) + ~0.9M (head) ≈ **~20.2M total** |
 | Inference Device | CPU (or GPU if available) |
-| Checkpoint Format | `.pth` (PyTorch state dict), `.onnx`, TorchScript `.pt` |
+| Runtime checkpoint | `checkpoints/best_model.pth` (optional local artifact; not committed) |
+| Other exports | `.onnx` and TorchScript `.pt` may be retained for experiments; the current API loader uses the `.pth` state-dict checkpoint |
 
 ### Classifier Head (detailed)
 
@@ -74,28 +75,30 @@ nn.Sequential(
 ### Preprocessing Pipeline
 
 Images are processed with the following pipeline before inference:
-1. **CLAHE** (Contrast Limited Adaptive Histogram Equalization) — enhances microaneurysms, exudates, and hemorrhages that are subtle in raw fundus images
-2. **Resize** to `380 × 380`
-3. **Normalize** with ImageNet mean/std: `mean=[0.485, 0.456, 0.406]`, `std=[0.229, 0.224, 0.225]`
+1. **Black-border cropping** — removes non-retinal border pixels
+2. **Ben Graham illumination correction** — reduces uneven illumination
+3. **CLAHE** (Contrast Limited Adaptive Histogram Equalization) — improves local contrast
+4. **Resize** to `380 × 380`
+5. **Normalize** with ImageNet mean/std: `mean=[0.485, 0.456, 0.406]`, `std=[0.229, 0.224, 0.225]`
 
 ### Loss & Optimization
 
 | Setting | Value |
 |---|---|
-| Loss Function | Cross-Entropy Loss |
+| Loss Function | Focal loss (γ=2) with inverse-frequency class weights |
 | Primary Metric | Quadratic Weighted Kappa (QWK) |
 | Optimizer | AdamW |
-| LR Schedule | Cosine Annealing with Warmup |
-| Starting LR | `1e-3` |
-| Final LR | `~3.46e-5` |
-| Epochs Trained | 9 |
-| Data Augmentation | Random flips, rotations, color jitter, MixUp |
+| LR Schedule | Phase A cosine annealing; Phase B cosine warm restarts |
+| Learning Rates | Phase A head `1e-3`; Phase B backbone `1e-4`, head `1e-3` |
+| Weight Decay | `1e-4` |
+| Epochs Recorded | 9 (5 Phase A + 4 Phase B) |
+| Data Augmentation | Flips, 90° rotation, shift/scale/rotate, brightness/contrast, HSV, Gaussian noise, coarse dropout |
 
 ---
 
 ## Training Performance
 
-The model was trained for 9 epochs with cosine annealing learning rate decay. Below are the training and validation metrics across all epochs:
+The stored training history contains 9 recorded epochs: 5 frozen-backbone Phase-A epochs and 4 recorded Phase-B fine-tuning epochs. The notebook configured Phase B for up to 10 epochs, but the report documents only the epochs present in `logs/training_history.csv`:
 
 | Epoch | Train Loss | Val Loss | Train Kappa | Val Kappa | Train Acc | Val Acc | LR |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
@@ -115,7 +118,7 @@ The model was trained for 9 epochs with cosine annealing learning rate decay. Be
 
 ![Training loss, accuracy, and kappa curves over 9 epochs](logs/training_curves.png)
 
-*The training curves show consistent loss reduction across all epochs. The QWK (Quadratic Weighted Kappa) metric — the clinical gold standard for DR grading agreement — improves steadily from 0.578 to 0.701 on the validation set.*
+*The training curves show the reported loss and QWK values for this training run. These values describe the project split and are not a clinical validation study.*
 
 ---
 
@@ -136,13 +139,13 @@ All evaluation was performed on a held-out **test split** never seen during trai
 | Severe — AUC | 0.813 |
 | Proliferative — AUC | 0.906 |
 
-> **Why accuracy is lower than AUC/QWK?** DR grading is an ordinal task — misclassifying "Moderate" as "Mild" is clinically acceptable compared to misclassifying it as "No DR". QWK penalizes proportionally to the distance between grades, so a QWK of **0.755** reflects excellent clinical agreement even when raw accuracy appears modest.
+> **Why accuracy is lower than AUC/QWK?** DR grading is ordinal, so QWK weights errors by the distance between grade labels. The **0.755** value is the score reported for this project's held-out split; it should not be interpreted as evidence of clinical agreement or readiness for patient care.
 
 ### ROC Curves (One-vs-Rest)
 
 ![ROC curves for each DR severity class](logs/roc_curves.png)
 
-*AUC scores above 0.88 for all classes and **0.991 for the critical No-DR class** — meaning the model almost never falsely clears a patient who actually has DR.*
+*On this project's held-out split, the reported AUC values were above 0.88 for all classes, including **0.991 for the No-DR class**. These measurements do not establish performance on other populations or devices.*
 
 ### Confusion Matrix
 
@@ -160,8 +163,8 @@ All evaluation was performed on a held-out **test split** never seen during trai
 
 ## Why This Model is Efficient for DR Detection
 
-### 1. 🧠 Clinically-Aligned Metric: Quadratic Weighted Kappa
-Standard accuracy is misleading for ordinal grading tasks. QWK — the same metric used in the APTOS Kaggle competition and ophthalmology studies — penalizes misclassifications by the *square* of the grade distance. A QWK of **0.755** is considered **substantial clinical agreement** (0.61–0.80 range), comparable to inter-rater agreement between human graders.
+### 1. 🧠 Ordinal Evaluation Metric: Quadratic Weighted Kappa
+Standard accuracy can hide the distance between ordinal labels. QWK penalizes misclassifications by the *square* of the grade distance. The reported **0.755** score is useful for comparing this training run, but it is not a claim of clinical agreement.
 
 ### 2. 🔬 NoisyStudent Pretraining Advantage
 `EfficientNet-B4-NS` was pretrained using **NoisyStudent self-training** on 300M unlabeled ImageNet images — giving it far richer feature representations than standard ImageNet-pretrained models. This is crucial for medical imaging where labeled data is scarce.
@@ -176,7 +179,7 @@ Raw fundus images often have poor local contrast due to variable illumination. *
 - Hard/soft exudates (Grade 2+)
 - Neovascularization (Grade 4)
 
-This preprocessing alone can improve model sensitivity to early-stage DR.
+This preprocessing is intended to make local contrast more consistent; any sensitivity change must be measured on the target evaluation data.
 
 ### 5. ⚡ Efficient Architecture for Deployment
 
@@ -189,22 +192,24 @@ This preprocessing alone can improve model sensitivity to early-stage DR.
 EfficientNet achieves **higher accuracy with fewer parameters** via compound scaling (depth + width + resolution), making it faster to deploy and less memory-intensive.
 
 ### 6. 🔍 Grad-CAM Explainability
-The model produces **Grad-CAM activation maps** that highlight which regions of the retina drove the prediction. This:
-- Makes the model auditable by clinicians
-- Provides visual evidence of lesion locations
-- Increases trust in AI-assisted screening
+The model produces attention maps that indicate image regions associated with the screening signal. They:
+- Can support technical review of an inference
+- Are not lesion segmentation or proof of causality
+- Should not be treated as a substitute for clinical interpretation
 
-### 7. 📊 Near-Perfect No-DR Detection (AUC = 0.991)
-The most critical clinical use-case is ruling out DR in healthy patients (screening). With an AUC of **0.991** for the No-DR class, the model acts as a reliable first-pass filter, triaging only at-risk patients to specialist review.
+### 7. 📊 Reported No-DR Test-Split AUC (0.991)
+The No-DR one-vs-rest AUC was **0.991** on the reported test split. This is a project metric, not a validated rule-out threshold or a replacement for specialist review.
 
-### 8. 🏥 Scalable for Mass Screening
+### 8. 🏥 Deployment Considerations
+
+The following comparison describes project goals and local software behavior, not measured clinical or production performance:
 
 | Manual Screening | AI-Assisted (This System) |
 |---|---|
-| 5–10 min per patient | < 1 second per image |
-| Requires specialist ophthalmologist | Deployable on commodity hardware |
-| High inter-grader variability | Consistent, reproducible grading |
-| Not scalable to rural areas | API-accessible from any browser |
+| 5–10 min per patient | Measure inference time for your hardware |
+| Requires specialist ophthalmologist | Runs on CPU in this implementation; size workloads before deployment |
+| High inter-grader variability | Same input/model/runtime can produce repeatable software output |
+| Not scalable to rural areas | API-accessible from a browser when networking and CORS are configured |
 
 ---
 
@@ -215,13 +220,10 @@ Project- AI-Based Diabetic Retinopathy Detection & Monitoring/
 │
 ├── DR_Detection_Monitoring.ipynb   # Full training & evaluation notebook
 ├── start.sh                        # One-command startup script
-├── monitoring.db                   # SQLite DB for patient monitoring
+├── monitoring.db                   # Generated local SQLite DB (ignored)
 │
 ├── checkpoints/
-│   ├── best_model.pth              # Best checkpoint (lowest val loss)
-│   ├── dr_efficientnet_b4_final.pth
-│   ├── dr_model.onnx               # ONNX export for cross-platform inference
-│   └── dr_model_scripted.pt        # TorchScript export
+│   └── best_model.pth              # Optional runtime artifact; not committed
 │
 ├── logs/
 │   ├── training_curves.png         # Loss, accuracy, kappa over epochs
@@ -232,82 +234,194 @@ Project- AI-Based Diabetic Retinopathy Detection & Monitoring/
 │   ├── training_history.csv        # Raw training metrics CSV
 │   └── metrics_summary.json        # Final evaluation metrics
 │
-├── data/                           # Dataset splits
-│   └── aptos2019-blindness-detection/
+├── data/                           # Local training data (ignored)
+│   └── aptos2019/
 │
 └── deployment/
     ├── backend/
     │   ├── main.py                 # FastAPI application entry point
     │   ├── inference.py            # Model definition + predict()
-    │   └── utils.py                # CLAHE preprocessing utilities
+    │   ├── db.py                   # SQLite patient/scan history
+    │   ├── reporting.py            # Temporary PDF/CSV/JSON report artifacts
+    │   └── utils.py                # Image validation and preprocessing
+    │   └── uploads/                # Generated saved-scan images (ignored)
+    │   └── report_artifacts/       # Generated report files (ignored)
     └── frontend/
         ├── index.html              # Main UI
         ├── styles.css              # Dark glassmorphism theme
         └── app.js                  # API integration + result rendering
 ```
 
+The repository keeps evaluation visuals under `logs/` as project assets, but
+the Docker build excludes `logs/`, datasets, local databases, uploads, and
+generated reports. The root `.gitignore` also keeps runtime state and model
+weights out of version control.
+
 ---
 
 ## Deployment
 
+This repository has a local development flow and a Docker API image. The
+checked-in frontend is a static client; the Dockerfile starts the backend only.
+
 ### Prerequisites
 
+Use Python 3.10 or newer and install the pinned dependency set for the
+backend:
+
 ```bash
-pip install torch torchvision timm fastapi uvicorn pillow opencv-python
+python3 -m pip install -r deployment/backend/requirements.txt
 ```
 
-### Start the Backend
+The API's current runtime checkpoint is `checkpoints/best_model.pth`. Model
+weights are intentionally excluded from Git. Supply that file separately when
+you need meaningful inference; if it is absent, the current loader falls back
+to untrained weights and prints a warning.
+
+### Local development
+
+Run the all-in-one script from the repository root:
+
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+The script starts:
+
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:8001`
+- Interactive API docs: `http://localhost:8001/docs`
+
+For the backend alone:
 
 ```bash
 cd deployment/backend
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+python3 -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
-Or use the all-in-one script:
+The frontend's `API_BASE` is currently `http://localhost:8001`. If the API is
+served at another host or port, update that frontend configuration or place a
+reverse proxy in front of both services. The sidebar's **API Online** state
+only confirms that `GET /` responded; it does not verify that a trained
+checkpoint is present or that predictions are clinically appropriate.
+
+### Docker API image
+
+The Docker image exposes the backend on port `7860` (the port used by the
+Dockerfile command). Build from the repository root:
 
 ```bash
-chmod +x start.sh && ./start.sh
+docker build -t retinascan-api .
+docker run --rm -p 7860:7860 retinascan-api
 ```
 
-### Open the Frontend
-
-Simply open `deployment/frontend/index.html` in a browser, or serve it:
+The API root is then `http://localhost:7860/`. To keep patient history,
+uploaded scan images, and report artifacts outside the container, mount a
+local `runtime/` directory and point the runtime variables at it:
 
 ```bash
-cd deployment/frontend
-python -m http.server 3000
-# Visit: http://localhost:3000
+docker run --rm -p 7860:7860 \
+  -e RETINASCAN_DB_PATH=/var/lib/retinascan/monitoring.db \
+  -e RETINASCAN_UPLOAD_DIR=/var/lib/retinascan/uploads \
+  -e RETINASCAN_REPORT_DIR=/var/lib/retinascan/report_artifacts \
+  -v "$PWD/runtime:/var/lib/retinascan" \
+  retinascan-api
 ```
 
-The **"API Online"** indicator in the sidebar confirms the backend is reachable and the model is loaded. If it shows **"API Offline"**, ensure the FastAPI server is running on port 8000.
+The `.dockerignore` excludes datasets, environments, local databases,
+uploads, report artifacts, logs, and alternate checkpoints from the build
+context. If `checkpoints/best_model.pth` exists locally, it is the one model
+artifact retained for the image build; it remains ignored by Git.
+
+The API currently permits all CORS origins for the browser client. Treat this
+as development-oriented behavior and apply the networking, access-control,
+and data-retention controls required by your deployment before exposing it to
+untrusted networks.
+
+### Environment variables
+
+All supported runtime variables are optional:
+
+| Variable | Default | Behavior |
+|---|---|---|
+| `RETINASCAN_MODEL_VERSION` | `EfficientNet-B4-NS` | Label included in API reports; it does not select or download model weights. |
+| `RETINASCAN_DB_PATH` | Repository-root `monitoring.db` | SQLite database for patient profiles and saved scans. Relative paths are anchored to the repository root. |
+| `RETINASCAN_UPLOAD_DIR` | `deployment/backend/uploads/` | Directory for images attached to saved patient scans. Relative paths are anchored to the repository root. |
+| `RETINASCAN_REPORT_DIR` | `deployment/backend/report_artifacts/` | Directory for temporary PDF/CSV/JSON and image artifacts. Relative paths are anchored to the backend directory. |
+| `RETINASCAN_REPORT_TTL_SECONDS` | `86400` (24 hours) | Artifact lifetime used during cleanup; invalid values use the default and values below 60 seconds are clamped to 60. |
+
+Report cleanup is best-effort and runs when a new report is created; an old
+artifact is not necessarily removed at the exact expiry second. The API has
+no separate `PORT` or model-path environment variable: local and Docker ports
+are set by their respective commands, and the checkpoint path is fixed at
+`checkpoints/best_model.pth`.
 
 ---
 
 ## API Reference
 
 ### `GET /`
-Health check endpoint.
+Root health/reachability endpoint. It returns a small JSON response when the
+FastAPI process is reachable:
 ```json
 { "message": "DR Detection API is running" }
 ```
 
+There is no separate `/health` route. A successful response from `/` confirms
+API reachability, not clinical validity or the presence of trained model
+weights.
+
+### Patient profiles and history
+
+Patient history is optional and is stored in SQLite:
+
+| Method | Path | Behavior |
+|---|---|---|
+| `GET` | `/patients` | List patient profiles with latest-scan summaries. |
+| `POST` | `/patients` | Create a profile; `name` is required and `patient_id` is optional. |
+| `GET` | `/patients/{patient_id}` | Return one profile, saved scans, and ordinal progression summary. |
+| `GET` | `/patients/{patient_id}/scans` | Return that patient's saved scans in chronological order. |
+
+`POST /predict` accepts optional form fields `patient_id`, `scan_date`
+(`YYYY-MM-DD`), `eye`, `notes`, and `save_scan`. Supplying a patient ID saves
+the scan by default; `save_scan=false` performs a preview without persisting
+the scan. Without a patient ID, the prediction is stateless. A saved scan
+stores its generated image basename and prediction in the configured upload
+directory and SQLite database.
+
 ### `POST /predict`
 Upload a fundus image for DR grading.
 
-**Request:** `multipart/form-data` with field `file` (image/jpeg or image/png)
+**Request:** `multipart/form-data` with required field `file`. The backend
+decodes readable JPEG, PNG, BMP, or WebP-style image uploads and rejects files
+that do not resemble a fundus image. The frontend limits uploads to 20 MB.
 
 **Response:**
 ```json
 {
   "filename": "fundus_left.jpg",
+  "saved": false,
+  "scan": null,
   "prediction": {
     "grade_idx": 2,
     "grade_name": "Moderate",
     "confidence": 0.847,
     "probabilities": [0.02, 0.05, 0.847, 0.06, 0.023]
+  },
+  "report_id": "<32-character-hex-id>",
+  "report_urls": {
+    "json": "/reports/<id>/json",
+    "csv": "/reports/<id>/csv",
+    "pdf": "/reports/<id>/pdf"
   }
 }
 ```
+
+The response also includes full report metadata under `report`. When a scan is
+saved, the response includes the saved scan identifiers and metadata. The
+attention image is an explanatory visualization, not a diagnosis or lesion
+segmentation.
 
 | Grade Index | Grade Name | Clinical Description |
 |:---:|---|---|
@@ -316,6 +430,24 @@ Upload a fundus image for DR grading.
 | 2 | Moderate | More than just microaneurysms, less than severe |
 | 3 | Severe | Extensive hemorrhages in 4 quadrants, venous beading |
 | 4 | Proliferative | Neovascularization, fibrous proliferation |
+
+### Report artifacts
+
+Each prediction creates a temporary report bundle with these endpoints:
+
+| Method | Path | Format |
+|---|---|---|
+| `GET` | `/reports/{report_id}` | Report metadata JSON response |
+| `GET` | `/reports/{report_id}/json` | Downloadable JSON export |
+| `GET` | `/reports/{report_id}/csv` | Downloadable one-row CSV export |
+| `GET` | `/reports/{report_id}/pdf` | PDF screening report |
+| `GET` | `/reports/{report_id}/image` | JPEG preview of the uploaded image |
+| `GET` | `/reports/{report_id}/attention` | JPEG attention-map overlay |
+
+The default report TTL is 24 hours and can be changed with
+`RETINASCAN_REPORT_TTL_SECONDS`. Artifacts are cleaned up on a best-effort
+basis when later reports are created, so callers should download anything they
+need before expiry.
 
 ---
 
@@ -326,8 +458,9 @@ The web interface (`RetinaScan AI`) features:
 - **Animated scanning** overlay during inference
 - **Per-class probability bars** with color-coded DR grades
 - **Confidence meter** for the top prediction
-- **Download report** as a `.txt` file
-- **API status indicator** (bottom of sidebar) — shows live backend connectivity
+- **Optional patient profiles and scan-history timeline**
+- **Downloadable PDF, CSV, and JSON report artifacts**, plus preview/attention images
+- **API status indicator** (bottom of sidebar) — checks the backend root endpoint
 
 ---
 
@@ -343,7 +476,7 @@ This project uses the **APTOS 2019 Blindness Detection** dataset from Kaggle:
 
 ## Disclaimer
 
-> ⚠️ **This system is intended for research and educational purposes only.** It is NOT a certified medical device and should NOT be used as a substitute for clinical diagnosis by a qualified ophthalmologist. All predictions must be reviewed by a licensed medical professional before any clinical decisions are made.
+> ⚠️ **This system is intended for research and educational purposes only.** It is not a certified or clinically validated medical device, and it should not be used as a substitute for diagnosis by a qualified ophthalmologist. The repository does not provide deployment security, authentication, audit controls, or a clinical data-retention program by default. Do not use predictions for clinical decisions without appropriate independent validation, qualified review, and deployment controls.
 
 ---
 
